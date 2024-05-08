@@ -11,7 +11,8 @@ class CustomUser(AbstractUser):
     ]
 
     role = models.CharField(max_length=10 , choices=ROLES_CHOICE)
-    contact_information = models.CharField(max_length=14)
+    contact_information = models.CharField(max_length=14, unique=True)
+    email = models.EmailField(unique=True)
 
     def __str__(self) -> str:
         return self.username
