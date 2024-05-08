@@ -12,6 +12,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 # Create your views here.
 
 class UserRegistration(APIView):
+    # User registration
     def post(self, request, *args, **kwargs):
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
@@ -19,12 +20,28 @@ class UserRegistration(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-
+    # Fetch all users
     def get(self, request):
         users = CustomUser.objects.all()
         serializer = CustomUserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    # Delete a single user
+    def delete(self, request, pk):
+        user = get_object_or_404(CustomUser, pk=pk)
+        user.delete()
+        return Response({ 'message':'User deleted successfully' })
+    
+    # Update user's credentials
+    def put(self, request, pk):
+        user_to_update = get_object_or_404(CustomUser, pk=pk)
+        serializer = CustomUserSerializer(user_to_update, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class UserLogin(APIView):
     # Disable authentication for login view

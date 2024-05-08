@@ -6,9 +6,15 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = '__all__'
-        # extra_kwargs = {'password':{'write_only': True}}
+        extra_kwargs = {'password':{'write_only': True}}
 
     def create(self, validated_data):
         # hash password before saving
         validated_data['password'] = make_password(validated_data.get('password'))
         return super().create(validated_data)
+    
+    # def update(self, instance, validated_data):
+        # exclude password from generated data if it is not provided
+        # if 'password' in validated_data:
+        #     del validated_data['password']
+        # return super().update(instance, validated_data)
