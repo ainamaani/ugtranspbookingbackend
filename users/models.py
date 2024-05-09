@@ -16,3 +16,19 @@ class CustomUser(AbstractUser):
 
     def __str__(self) -> str:
         return self.username
+    
+    class Meta:
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
+    
+class ResetCode(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    generated_reset_code = models.PositiveIntegerField(max_length=6)
+
+
+    def __str__(self) -> str:
+        return self.user
+    
+    class Meta:
+        verbose_name = 'Reset Code'
+        verbose_name_plural = 'Reset Codes'

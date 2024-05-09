@@ -9,4 +9,5 @@ urlpatterns = [
     path('delete/<int:pk>/', UserRegistration.as_view(), name="delete"),
     path('update/<int:pk>/', UserRegistration.as_view(), name="update"),
     path('<int:pk>/changepassword/', ChangeUserPassword.as_view(), name="changepassword")
+    
 ]

@@ -1,3 +1,4 @@
+import random
 from django.shortcuts import render, get_object_or_404
 from django.core.mail import send_mail
 from django.utils.html import strip_tags
@@ -7,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
-from . models import CustomUser
+from . models import CustomUser,ResetCode
 from . serializers import CustomUserSerializer
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -114,4 +115,32 @@ class ChangeUserPassword(APIView):
             user.password = make_password(supplied_new_password)
             user.save()
             return Response({ 'message': 'Password changed successfully' }, status=status.HTTP_200_OK)
+        
+
+class HandleForgotPassword(APIView):
+    # function to generate random codes
+    @staticmethod
+    def generate_reset_code():
+        return random.randint(100000, 999999)
+    
+    def post(self, request):
+        email = request.data.get('email')
+        try:
+            user_forgot_password = CustomUser.objects.get(email=email)
+            # check if the code is already sent
+            reset_code_exists = ResetCode.objects.get(user = user_forgot_password)
+            if reset_code_exists:
+                reset_code_exists.generated_reset_code = HandleForgotPassword.generate_reset_code()
+                reset_code_exists.save()
+            else:   
+                # call the static method to generate the code
+                code = HandleForgotPassword.generate_reset_code()
+                reset_code_entry = CustomUser.objects.create( user=user_forgot_password.id,
+                                                            generated_reset_code=code
+                                                            )
+                return Response({ 'message' : "Code generated successfully" }, reset_code_entry, status=status.HTTP_201_CREATED)
+        
+        except CustomUser.DoesNotExist:
+            return Response({ 'error' : "User with this email doesn't exist" }, status=status.HTTP_404_NOT_FOUND)
+
     
