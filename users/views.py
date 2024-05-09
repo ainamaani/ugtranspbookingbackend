@@ -1,4 +1,7 @@
 from django.shortcuts import render, get_object_or_404
+from django.core.mail import send_mail
+from django.utils.html import strip_tags
+from django.template.loader import render_to_string
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -16,7 +19,29 @@ class UserRegistration(APIView):
     def post(self, request, *args, **kwargs):
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
+
+            # get the user's first and last name
+            first_name = user.first_name
+            last_name = user.last_name
+
+            # concatenate the first name and the last name to form the fullname
+            full_name = f"{first_name} {last_name}"
+
+            # Send email after successful registration
+            subject = 'Registration successful!'
+            message = render_to_string('welcome.html', {
+                'customer_name' : full_name,
+                'customer_fullname' : full_name
+            })
+            plain_message = strip_tags(message) # Strip HTML tags for the plain text version
+            from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
+            to_email = user.email
+
+            send_mail(subject, plain_message, from_email, [to_email], html_message=message)
+
+            print("Email sent successfully")
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
