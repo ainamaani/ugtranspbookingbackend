@@ -2,8 +2,10 @@ from django.shortcuts import render, get_object_or_404
 from django.core.mail import send_mail
 from django.utils.html import strip_tags
 from django.template.loader import render_to_string
+from django.contrib.auth.hashers import check_password, make_password
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from . models import CustomUser
 from . serializers import CustomUserSerializer
@@ -89,5 +91,27 @@ class UserLogin(APIView):
             return Response(token, status=status.HTTP_200_OK)
         else:
             return Response({ 'error': 'Invalid credentials' }, status=status.HTTP_401_UNAUTHORIZED)
-       
+        
+
+class ChangeUserPassword(APIView):
+    def post(self, request, pk):
+        supplied_current_password = request.data.get('current_password')
+        supplied_new_password = request.data.get('new_password')
+        # check if the supplied current password and the new password are the same
+        if supplied_current_password == supplied_new_password:
+            return Response({ 'error': "The current password and the proposed new password should be different" }, status=status.HTTP_400_BAD_REQUEST)
+        # retrieve the user associated with the id
+        user = get_object_or_404(CustomUser, pk=pk)
+        if user is None:
+            # raise ValidationError(f"User with ID {pk} doesn't exist")
+            return Response({ 'error' : f"User with ID {pk} doesn't exist" }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Check if the supplied current password matches the hashed password stored in the database
+            if not check_password(supplied_current_password, user.password):
+                return Response({ 'error' : "Supply the correct current user password" }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # hash new password before saving it
+            user.password = make_password(supplied_new_password)
+            user.save()
+            return Response({ 'message': 'Password changed successfully' }, status=status.HTTP_200_OK)
     

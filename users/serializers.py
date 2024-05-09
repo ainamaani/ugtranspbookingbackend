@@ -18,3 +18,17 @@ class CustomUserSerializer(serializers.ModelSerializer):
         # if 'password' in validated_data:
         #     del validated_data['password']
         # return super().update(instance, validated_data)
+
+# class ChangePasswordSerializer(serializers.ModelSerializer):
+#     current_password = serializers.CharField(required=True)
+#     new_password = serializers.CharField(required=True)
+
+#     def validate(self, data):
+#         current_password = data.get('current_password')
+#         new_password = data.get('new_password')
+
+        # retrieve the user associated 
+
+        # check if the current password is the same as the supplied new password
+        # if current_password == new_password:
+        #     raise serializers.ValidationError("New supplied password must be different from the current password")
