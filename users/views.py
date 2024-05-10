@@ -58,7 +58,7 @@ class UserRegistration(APIView):
     def delete(self, request, pk):
         user = get_object_or_404(CustomUser, pk=pk)
         user.delete()
-        return Response({ 'message':'User deleted successfully' })
+        return Response({ 'message':'User deleted successfully' }, status=status.HTTP_200_OK)
     
     # Update user's credentials
     def put(self, request, pk):

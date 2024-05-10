@@ -23,7 +23,7 @@ class CustomUser(AbstractUser):
     
 class ResetCode(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    generated_reset_code = models.PositiveIntegerField(max_length=6)
+    generated_reset_code = models.PositiveIntegerField()
 
 
     def __str__(self) -> str:
