@@ -52,6 +52,6 @@ class SingleBusCompanyView(APIView):
             serializer = BusCompanySerializer(company, many=False)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({ "message": f"Failed to fetch the company with ID {pk} :{str(e)} " }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({ "message": f"Failed to fetch the company with ID {pk} :{str(e)}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             

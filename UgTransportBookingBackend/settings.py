@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'users',
-    'companies'
+    'companies',
+    'buses'
 ]
 
 MIDDLEWARE = [
