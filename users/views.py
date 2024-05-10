@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from . models import CustomUser,ResetCode
-from . serializers import CustomUserSerializer
+from . serializers import CustomUserSerializer, ResetCodeSerializer
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -117,7 +117,7 @@ class ChangeUserPassword(APIView):
             return Response({ 'message': 'Password changed successfully' }, status=status.HTTP_200_OK)
         
 
-class HandleForgotPassword(APIView):
+class HandlePasswordResetCode(APIView):
     # function to generate random codes
     @staticmethod
     def generate_reset_code():
@@ -128,19 +128,96 @@ class HandleForgotPassword(APIView):
         try:
             user_forgot_password = CustomUser.objects.get(email=email)
             # check if the code is already sent
-            reset_code_exists = ResetCode.objects.get(user = user_forgot_password)
+            reset_code_exists = ResetCode.objects.filter(user = user_forgot_password).first()
             if reset_code_exists:
-                reset_code_exists.generated_reset_code = HandleForgotPassword.generate_reset_code()
+                reset_code_exists.generated_reset_code = HandlePasswordResetCode.generate_reset_code()
                 reset_code_exists.save()
+
+                # get the user's first and last name
+                first_name = user_forgot_password.first_name
+                last_name = user_forgot_password.last_name
+
+                # concatenate the first name and the last name to form the fullname
+                full_name = f"{first_name} {last_name}"
+                # Send email with the reset code
+                subject = 'Password reset code'
+                message = render_to_string('password_reset_code.html', {
+                    'user_name' : full_name,
+                    'reset_code' : reset_code_exists.generated_reset_code
+                })
+                plain_message = strip_tags(message) # Strip HTML tags for the plain text version
+                from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
+                to_email = user_forgot_password.email
+                
+                send_mail(subject, plain_message, from_email, [to_email], html_message=message)
+
             else:   
                 # call the static method to generate the code
-                code = HandleForgotPassword.generate_reset_code()
-                reset_code_entry = CustomUser.objects.create( user=user_forgot_password.id,
+                code = HandlePasswordResetCode.generate_reset_code()
+                reset_code_entry = ResetCode.objects.create( user=user_forgot_password,
                                                             generated_reset_code=code
                                                             )
-                return Response({ 'message' : "Code generated successfully" }, reset_code_entry, status=status.HTTP_201_CREATED)
+                # get the user's first and last name
+                first_name = user_forgot_password.first_name
+                last_name = user_forgot_password.last_name
+
+                # concatenate the first name and the last name to form the fullname
+                full_name = f"{first_name} {last_name}"
+                # Send email with the reset code
+                subject = 'Password reset code'
+                message = render_to_string('password_reset_code.html', {
+                    'user_name' : full_name,
+                    'reset_code' : code
+                })
+                plain_message = strip_tags(message) # Strip HTML tags for the plain text version
+                from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
+                to_email = user_forgot_password.email
+
+                send_mail(subject, plain_message, from_email, [to_email], html_message=message)
+
+                return Response({ 'message' : f"Code { reset_code_entry } generated successfully" }, status=status.HTTP_201_CREATED)
+             # Always return a response
+            return Response({'message': "Reset code sent successfully"}, status=status.HTTP_200_OK)
         
         except CustomUser.DoesNotExist:
             return Response({ 'error' : "User with this email doesn't exist" }, status=status.HTTP_404_NOT_FOUND)
 
+    # Fetch all reset codes
+    def get(self, request):
+        reset_codes = ResetCode.objects.all()
+        serializer = ResetCodeSerializer(reset_codes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+class HandleResetForgotPassword(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        reset_code = request.data.get('reset_code')
+        password1 = request.data.get('password1')
+        password2 = request.data.get('password2')
+
+        if email is None or str(email).strip() == "" or reset_code is None or str(reset_code).strip() == "" or password1 is None or str(password1).strip() == "" or password2 is None or str(password2).strip() == "":
+            return Response({ "error" : "All fields are required" }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            userID = CustomUser.objects.filter(email=email).values_list('id', flat=True).first()
+            # check if the user has a reset code
+            user_has_code = ResetCode.objects.get(user=userID)
+            if user_has_code is None:
+                return Response({ "error" : "No reset code has been sent for this user" }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # check if the supplied reset code is the same as the one sent
+                if user_has_code.generated_reset_code != reset_code:
+                    return Response({ "error" : "Input the correct reset code" }, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    if password1 != password2:
+                        return Response({ "error" : "Passwords do not match" }, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        user_resetting_password = CustomUser.objects.get(email=email)
+                        user_resetting_password.password = make_password(password2)
+                        user_resetting_password.save()
+                        return Response({"message" : "Password reset successful"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({ "error" : f"Failed to reset forgotten password: {str(e)}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
