@@ -13,20 +13,41 @@ from . serializers import CustomUserSerializer, ResetCodeSerializer
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from accounts.models import Account
 
 
 # Create your views here.
 
 class UserRegistration(APIView):
+    # function to generate account_numbers
+    @staticmethod
+    def generate_account_number():
+        while True:
+            account_number = int(''.join(random.choices('0123456789', k=10)))
+            # check if the account_number already exists
+            if not Account.objects.filter(account_number=account_number).exists():
+                return account_number
+
     # User registration
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):  
         serializer = CustomUserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
 
+            # creat account for the newly registered if the role is customer
+            if user.role == 'customer':
+                generated_account_number = UserRegistration.generate_account_number()
+                user_account = Account.objects.create(
+                                                        user=user,
+                                                        balance=0.00,
+                                                        account_number=generated_account_number 
+                                                    )
+                
+
             # get the user's first and last name
             first_name = user.first_name
             last_name = user.last_name
+            account_number = user_account.account_number
 
             # concatenate the first name and the last name to form the fullname
             full_name = f"{first_name} {last_name}"
@@ -35,7 +56,8 @@ class UserRegistration(APIView):
             subject = 'Registration successful!'
             message = render_to_string('welcome.html', {
                 'customer_name' : full_name,
-                'customer_fullname' : full_name
+                'customer_fullname' : full_name,
+                'account_number' : account_number
             })
             plain_message = strip_tags(message) # Strip HTML tags for the plain text version
             from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"

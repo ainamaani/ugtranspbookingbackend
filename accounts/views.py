@@ -52,3 +52,27 @@ class SingleAccountView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error":f"Failed to fetch account with ID {pk}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+def handle_deposit(request):
+    amount_to_deposit = request.data.get('amount')
+    acc_no = request.data.get('acc_no')
+
+    if not amount_to_deposit or str(amount_to_deposit).strip() == "" or not acc_no or str(acc_no).strip() == "":
+        return Response({"error":"Both fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if len(acc_no) < 10:
+        return Response({"error": "Account number can't be less than 10 digits, enter the correct one"})
+    
+    if int(amount_to_deposit) < 1000:
+        return Response({"error":"The minimum amount you can deposit is 1,000 UGX"})
+    
+    try:
+        account = get_object_or_404(Account, account_number=acc_no)
+        current_balance = int(account.balance)
+        new_balance = current_balance + int(amount_to_deposit)
+        account.balance = str(new_balance)
+        account.save()
+        return Response({"message":f"Deposit successful, new balance: {account.balance}"})
+    except Exception as e:
+        return Response({"error":f"Failed to handle deposit: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
