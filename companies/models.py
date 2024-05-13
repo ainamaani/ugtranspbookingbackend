@@ -18,6 +18,7 @@ class BusCompany(models.Model):
     def __str__(self) -> str:
         return self.company_name
     
+    
     class Meta:
         verbose_name = 'Bus company'
         verbose_name_plural = 'Bus companies'

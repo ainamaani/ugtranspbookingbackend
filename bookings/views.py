@@ -1,9 +1,24 @@
+import qrcode
+import base64
+from io import BytesIO
+from django.core.files import File
+from PIL import Image, ImageDraw
+from django.db import transaction
+from django.core.mail import send_mail
+from django.utils.html import strip_tags
+from django.template.loader import render_to_string
+from django.core.files.base import ContentFile
 from django.shortcuts import render, get_object_or_404
+import qrcode.constants
 from . models import Booking
 from . serializers import BookingSerializer
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view
+from buses.models import Bus
+from accounts.models import Account
+from users.models import CustomUser
 
 # Create your views here.
 class BookingView(APIView):
@@ -53,3 +68,67 @@ class SingleBookingView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error":f"Failed to fetch booking with ID {pk}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@transaction.atomic
+@api_view(['POST'])
+def handle_booking(request):
+    user = request.data.get('user')
+    bus_booked = request.data.get('bus_booked')
+    number_of_seats_booked = request.data.get('number_of_seats_booked')
+
+    if not user or not bus_booked or number_of_seats_booked or str(number_of_seats_booked).strip() == "":
+        return Response({"error":"All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if number_of_seats_booked < 1:
+        return Response({"error":"The minimum number of seats you can book is 1"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # check if there any available seats
+        bus = get_object_or_404(Bus, pk=bus_booked)
+        if bus.available_seats < number_of_seats_booked:
+            return Response({"error":"The number of seats requested isn't available"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # check if the user has enough balance on their balance
+        account = get_object_or_404(Account, user=user)
+        if int(bus.fare) > int(account.balance):
+            return Response({"error":"You don't have enough money on your account to book the bus"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # deduct the fare from the account balance
+        new_account_balance = int(account.balance) - int(bus.fare)
+        account.balance = new_account_balance
+        account.save()
+        
+        booking_made = Booking.objects.create(
+                                    user=user,
+                                    bus_booked=bus_booked,
+                                    number_of_seats_booked=number_of_seats_booked,
+                                    fare=bus.fare,
+                                    
+        )
+
+        # send email containing the QR code after successful booking
+        # get the user's first and last name
+        user_details = get_object_or_404(CustomUser, pk=user)
+        first_name = user_details.first_name
+        last_name = user_details.last_name
+
+        # concatenate the first name and the last name to form the fullname
+        full_name = f"{first_name} {last_name}"
+        subject = 'Booking confirmation'
+        message = render_to_string('booking.html', {
+            'customer_name' : full_name,
+            'booking_id' : booking_made.id,
+            'bus_name' : booking_made.bus_booked,
+            'number_of_seats_booked' : booking_made.number_of_seats_booked,
+            'fare' : booking_made.fare
+        })
+        plain_message = strip_tags(message) # Strip HTML tags for the plain text version
+        from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
+        to_email = user_details.email
+
+        send_mail(subject, plain_message, from_email, [to_email], html_message=message)
+
+        return Response({ "message":"Booking made successfully" }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({"error":f"Failed to handle booking: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

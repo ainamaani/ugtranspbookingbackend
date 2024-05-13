@@ -6,7 +6,7 @@ from django.core.validators import MinValueValidator
 class Account(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=0, validators=[MinValueValidator(0)])
-    account_number = models.IntegerField(unique=True)
+    account_number = models.BigIntegerField(unique=True)
 
     def __str__(self) -> str:
         return f"{self.user.first_name} {self.user.last_name}"

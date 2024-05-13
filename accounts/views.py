@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
 from . serializers import AccountSerializer
 from . models import Account
 from rest_framework import status
@@ -52,7 +54,8 @@ class SingleAccountView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error":f"Failed to fetch account with ID {pk}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
+@api_view(['POST'])        
 def handle_deposit(request):
     amount_to_deposit = request.data.get('amount')
     acc_no = request.data.get('acc_no')
@@ -60,9 +63,12 @@ def handle_deposit(request):
     if not amount_to_deposit or str(amount_to_deposit).strip() == "" or not acc_no or str(acc_no).strip() == "":
         return Response({"error":"Both fields are required"}, status=status.HTTP_400_BAD_REQUEST)
     
-    if len(acc_no) < 10:
+    if len(str(acc_no)) < 10:
         return Response({"error": "Account number can't be less than 10 digits, enter the correct one"})
     
+    if ',' in amount_to_deposit:
+        amount_to_deposit = amount_to_deposit.replace(',','')
+
     if int(amount_to_deposit) < 1000:
         return Response({"error":"The minimum amount you can deposit is 1,000 UGX"})
     

@@ -1,4 +1,5 @@
 import random
+from django.db import transaction
 from django.shortcuts import render, get_object_or_404
 from django.core.mail import send_mail
 from django.utils.html import strip_tags
@@ -29,68 +30,80 @@ class UserRegistration(APIView):
                 return account_number
 
     # User registration
+    @transaction.atomic
     def post(self, request, *args, **kwargs):  
-        serializer = CustomUserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
+        try:
+            serializer = CustomUserSerializer(data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
 
-            # creat account for the newly registered if the role is customer
-            if user.role == 'customer':
-                generated_account_number = UserRegistration.generate_account_number()
-                user_account = Account.objects.create(
-                                                        user=user,
-                                                        balance=0.00,
-                                                        account_number=generated_account_number 
-                                                    )
-                
+                # creat account for the newly registered if the role is customer
+                if user.role == 'customer':
+                    generated_account_number = UserRegistration.generate_account_number()
+                    user_account = Account.objects.create(
+                                                            user=user,
+                                                            balance=0.00,
+                                                            account_number=generated_account_number 
+                                                        )
+                    
 
-            # get the user's first and last name
-            first_name = user.first_name
-            last_name = user.last_name
-            account_number = user_account.account_number
+                # get the user's first and last name
+                first_name = user.first_name
+                last_name = user.last_name
+                account_number = user_account.account_number
 
-            # concatenate the first name and the last name to form the fullname
-            full_name = f"{first_name} {last_name}"
+                # concatenate the first name and the last name to form the fullname
+                full_name = f"{first_name} {last_name}"
 
-            # Send email after successful registration
-            subject = 'Registration successful!'
-            message = render_to_string('welcome.html', {
-                'customer_name' : full_name,
-                'customer_fullname' : full_name,
-                'account_number' : account_number
-            })
-            plain_message = strip_tags(message) # Strip HTML tags for the plain text version
-            from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
-            to_email = user.email
+                # Send email after successful registration
+                subject = 'Registration successful!'
+                message = render_to_string('welcome.html', {
+                    'customer_name' : full_name,
+                    'customer_fullname' : full_name,
+                    'account_number' : account_number
+                })
+                plain_message = strip_tags(message) # Strip HTML tags for the plain text version
+                from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
+                to_email = user.email
 
-            send_mail(subject, plain_message, from_email, [to_email], html_message=message)
+                send_mail(subject, plain_message, from_email, [to_email], html_message=message)
 
-            print("Email sent successfully")
+                print("Email sent successfully")
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error":f"Failed to create the user and other transactions: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     # Fetch all users
     def get(self, request):
-        users = CustomUser.objects.all()
-        serializer = CustomUserSerializer(users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            users = CustomUser.objects.all()
+            serializer = CustomUserSerializer(users, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error":f"Failed to fetch all users: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     # Delete a single user
     def delete(self, request, pk):
-        user = get_object_or_404(CustomUser, pk=pk)
-        user.delete()
-        return Response({ 'message':'User deleted successfully' }, status=status.HTTP_200_OK)
-    
+        try:
+            user = get_object_or_404(CustomUser, pk=pk)
+            user.delete()
+            return Response({ 'message':'User deleted successfully' }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error":f"Failed to delete user: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     # Update user's credentials
     def put(self, request, pk):
-        user_to_update = get_object_or_404(CustomUser, pk=pk)
-        serializer = CustomUserSerializer(user_to_update, data=request.data, partial=True)
+        try:
+            user_to_update = get_object_or_404(CustomUser, pk=pk)
+            serializer = CustomUserSerializer(user_to_update, data=request.data, partial=True)
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error":f"Failed to update the user data: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UserLogin(APIView):
@@ -102,19 +115,21 @@ class UserLogin(APIView):
         password = request.data.get('password')
 
         # Autheticate user
-        user = authenticate(username=username, password=password)
-        if user is not None:
-            # Generate JWT token
-            refresh = RefreshToken.for_user(user)
-            token = {
-                'refresh' : str(refresh),
-                'access' : str(refresh.access_token)
-            }
+        try:
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                # Generate JWT token
+                refresh = RefreshToken.for_user(user)
+                token = {
+                    'refresh' : str(refresh),
+                    'access' : str(refresh.access_token)
+                }
 
-            return Response(token, status=status.HTTP_200_OK)
-        else:
-            return Response({ 'error': 'Invalid credentials' }, status=status.HTTP_401_UNAUTHORIZED)
-        
+                return Response(token, status=status.HTTP_200_OK)
+            else:
+                return Response({ 'error': 'Invalid credentials' }, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            return Response({"error":f"Failed to login user: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
 class ChangeUserPassword(APIView):
     def post(self, request, pk):
@@ -123,21 +138,23 @@ class ChangeUserPassword(APIView):
         # check if the supplied current password and the new password are the same
         if supplied_current_password == supplied_new_password:
             return Response({ 'error': "The current password and the proposed new password should be different" }, status=status.HTTP_400_BAD_REQUEST)
-        # retrieve the user associated with the id
-        user = get_object_or_404(CustomUser, pk=pk)
-        if user is None:
-            # raise ValidationError(f"User with ID {pk} doesn't exist")
-            return Response({ 'error' : f"User with ID {pk} doesn't exist" }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            # Check if the supplied current password matches the hashed password stored in the database
-            if not check_password(supplied_current_password, user.password):
-                return Response({ 'error' : "Supply the correct current user password" }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # hash new password before saving it
-            user.password = make_password(supplied_new_password)
-            user.save()
-            return Response({ 'message': 'Password changed successfully' }, status=status.HTTP_200_OK)
-        
+        try:
+            # retrieve the user associated with the id
+            user = get_object_or_404(CustomUser, pk=pk)
+            if user is None:
+                # raise ValidationError(f"User with ID {pk} doesn't exist")
+                return Response({ 'error' : f"User with ID {pk} doesn't exist" }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Check if the supplied current password matches the hashed password stored in the database
+                if not check_password(supplied_current_password, user.password):
+                    return Response({ 'error' : "Supply the correct current user password" }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # hash new password before saving it
+                user.password = make_password(supplied_new_password)
+                user.save()
+                return Response({ 'message': 'Password changed successfully' }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({ "error":f"Failed to change user password: {str(e)}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class HandlePasswordResetCode(APIView):
     # function to generate random codes
@@ -206,9 +223,12 @@ class HandlePasswordResetCode(APIView):
 
     # Fetch all reset codes
     def get(self, request):
-        reset_codes = ResetCode.objects.all()
-        serializer = ResetCodeSerializer(reset_codes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            reset_codes = ResetCode.objects.all()
+            serializer = ResetCodeSerializer(reset_codes, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": f"Failed to fetch reset codes: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 class HandleResetForgotPassword(APIView):
