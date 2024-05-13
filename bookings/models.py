@@ -22,14 +22,14 @@ class Booking(models.Model):
     
     def save(self, *args, **kwargs):
         # create QR code
-        qrcode_image = qrcode.make(self.user)
-        canvas = Image.new('RGB', {290, 290}, 'white')
+        qrcode_image = qrcode.make(self.user.username)
+        canvas = Image.new('RGB', (290, 290), 'white')
         draw = ImageDraw.Draw(canvas)
         canvas.paste(qrcode_image)
-        qr_name = f'QR-Code-{self.user}.png' 
+        qr_name = f'QR-Code-{self.user.username}.png' 
         buffer = BytesIO()
-        canvas.save(buffer, 'PNG')
-        self.qr_code.save(qr_name, File(buffer), save=True)
+        canvas.save(buffer, format='PNG')
+        self.qr_code.save(qr_name, File(buffer), save=False)
         canvas.close()
         super().save(*args, **kwargs)
     
