@@ -94,10 +94,19 @@ def handle_booking(request):
             if int(bus.fare) > int(account.balance):
                 return Response({"error":"You don't have enough money on your account to book the bus"}, status=status.HTTP_400_BAD_REQUEST)
             
+            # compute the bus fare dependingon the number of seats
+            fare_charged = int(number_of_seats_booked) * int(bus.fare)
+
             # deduct the fare from the account balance
-            new_account_balance = int(account.balance) - int(bus.fare)
+            new_account_balance = int(account.balance) - fare_charged
             account.balance = new_account_balance
             account.save()
+
+            # reduce the number of available seats
+            current_available_seats = int(bus.available_seats) - int(number_of_seats_booked)
+            bus.available_seats = current_available_seats
+            bus.save()
+
 
             user_details = get_object_or_404(CustomUser, pk=user)
             
