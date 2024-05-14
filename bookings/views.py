@@ -4,11 +4,13 @@ from io import BytesIO
 from django.core.files import File
 from PIL import Image, ImageDraw
 from django.db import transaction
-from django.core.mail import send_mail
+from email.mime.image import MIMEImage
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils.html import strip_tags
 from django.template.loader import render_to_string
 from django.core.files.base import ContentFile
 from django.shortcuts import render, get_object_or_404
+from django.utils.crypto import get_random_string
 import qrcode.constants
 from . models import Booking
 from . serializers import BookingSerializer
@@ -69,6 +71,12 @@ class SingleBookingView(APIView):
         except Exception as e:
             return Response({"error":f"Failed to fetch booking with ID {pk}: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+def generate_booking_id():
+    while True:
+        booking_id = get_random_string(length=15)
+        # check if the generated booking_id already exists
+        if not Booking.objects.filter(booking_id=booking_id).exists():
+            return booking_id
 
 @api_view(['POST'])
 def handle_booking(request):
@@ -107,6 +115,7 @@ def handle_booking(request):
             bus.available_seats = current_available_seats
             bus.save()
 
+            generated_booking_id = generate_booking_id()
 
             user_details = get_object_or_404(CustomUser, pk=user)
             
@@ -115,8 +124,10 @@ def handle_booking(request):
                                         bus_booked=bus,
                                         number_of_seats_booked=number_of_seats_booked,
                                         fare=bus.fare,
+                                        booking_id=generated_booking_id
                                         
             )
+            booking_made.save()
 
             # send email containing the QR code after successful booking
             # get the user's first and last name
@@ -128,16 +139,31 @@ def handle_booking(request):
             subject = 'Booking confirmation'
             message = render_to_string('booking.html', {
                 'customer_name' : full_name,
-                'booking_id' : booking_made.id,
+                'booking_id' : booking_made.booking_id,
                 'bus_name' : booking_made.bus_booked.company,
                 'number_of_seats_booked' : booking_made.number_of_seats_booked,
-                'fare' : booking_made.fare
+                'fare' : booking_made.fare,
+                'booking_date': booking_made.booking_date.strftime("%Y-%m-%d %H:%M:%S"),
             })
             plain_message = strip_tags(message) # Strip HTML tags for the plain text version
             from_email = "TransportHub Uganda <aina.isaac2002@gmail.com>"
             to_email = user_details.email
 
-            send_mail(subject, plain_message, from_email, [to_email], html_message=message)
+            # Create EmailMultiAlternatives object
+            email = EmailMultiAlternatives(subject, plain_message, from_email, [to_email])
+            email.attach_alternative(message, "text/html")
+
+            # Attach QR code image as inline content
+            qr_code_path = booking_made.qr_code.path
+            with open(qr_code_path, 'rb') as f:
+                qr_code_data = f.read()
+                email_img = MIMEImage(qr_code_data)
+                email_img.add_header('Content-ID', '<qr_code>')
+                email.attach(email_img)
+
+            email.send()
+
+            # send_mail(subject, plain_message, from_email, [to_email], html_message=message)
 
             return Response({ "message":"Booking made successfully" }, status=status.HTTP_200_OK)
             

@@ -10,10 +10,12 @@ from io import BytesIO
 from django.core.files import File
 from PIL import Image, ImageDraw
 
+
 # Create your models here.
 class Booking(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     bus_booked = models.ForeignKey(Bus, on_delete=models.CASCADE)
+    booking_id = models.CharField(max_length=15, null=True)
     number_of_seats_booked = models.PositiveSmallIntegerField(validators=[MinValueValidator(0)],null=True)
     booking_date = models.DateTimeField(auto_now_add=True)
     fare = models.CharField(max_length=8)
@@ -22,14 +24,17 @@ class Booking(models.Model):
     def __str__(self) -> str:
         return self.user.username
     
+    
     def save(self, *args, **kwargs):
         # Concatenate all booking details into a single string
         booking_info = (
-        f"User: {self.user.username}\n"
+        f"User: {self.user.first_name} {self.user.last_name}\n"
+        f"Booking ID: {self.booking_id}\n"
         f"Bus Booked: {self.bus_booked.number_plate}\n"
         f"Number of Seats Booked: {self.number_of_seats_booked}\n"
         f"Fare: {self.fare}"
-    )
+    )   
+
         
         # Create QR code with booking information
         qrcode_image = qrcode.make(booking_info)
