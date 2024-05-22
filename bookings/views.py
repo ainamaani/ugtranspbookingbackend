@@ -169,3 +169,16 @@ def handle_booking(request):
             
     except Exception as e:
         return Response({"error":f"Failed to handle booking: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['POST'])
+def verify_booking_id(request):
+    booking_id = request.data.get('booking_id')
+
+    try:
+        customer = Booking.objects.get(booking_id=booking_id)
+        if customer:
+            return Response({"message":"Booking is authentic"}, status=status.HTTP_202_ACCEPTED)
+        return Response({"message":"Booking doesn't exist in the DB"}, status=status.HTTP_406_NOT_ACCEPTABLE)
+    except Exception as e:
+        return Response({"error":f"Failed to verify the booking: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
