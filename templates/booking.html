@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p>Dear {{ customer_name }},</p>
+    
+    <p>We are pleased to inform you that your booking has been successfully confirmed.</p>
+    
+    <p>Booking Details:</p>
+    <ul>
+        <li><strong>Booking ID:</strong>{{ booking_id }}</li>
+        <li><strong>Bus Booked:</strong>{{ bus_name }}</li>
+        <li><strong>Number of Seats Booked:</strong>{{ number_of_seats_booked }}</li>
+        <li><strong>Fare:</strong>{{ fare }}</li>
+        <li><strong>Booking Date:</strong>{{ booking_date }}</li>
+    </ul>
+    <p>For your convenience, here is your QR code:</p>
+    
+    <img src="cid:qr_code" alt="QR Code">
+
+    <p>Please present this QR code at the boarding point for verification.</p>
+    
+    <p>Thank you for choosing our service. We look forward to serving you!</p>
+    
+    <p>Best regards,<br>
+    TransportHub Uganda</p>
+</body>
+</html>

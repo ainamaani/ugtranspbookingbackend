@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +24,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ha3!u+r8m#f^5xfsq)(fxgxf70tngu)(1a5dmt*&o_84$!)t=r'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+AUTH_USER_MODEL = 'users.CustomUser'
 
 
 # Application definition
@@ -37,10 +43,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',
+    'users',
+    'companies',
+    'buses',
+    'accounts',
+    'bookings',
+    'payments'
+    
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -51,10 +67,16 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'UgTransportBookingBackend.urls'
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:2024",
+    "http://localhost:8080",
+    "http://localhost:3000"
+]
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -75,10 +97,16 @@ WSGI_APPLICATION = 'UgTransportBookingBackend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT')
+
     }
 }
+
 
 
 # Password validation
@@ -99,6 +127,24 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Use SMTP as the Email backend
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
+
+# Gmail SMTP server settings
+EMAIL_HOST= os.getenv('EMAIL_HOST')
+EMAIL_PORT= os.getenv('EMAIL_PORT')
+
+# Use TLS for secure communication
+EMAIL_USE_TLS= os.getenv('EMAIL_USE_TLS') 
+
+
+EMAIL_HOST_USER= os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD= os.getenv('EMAIL_HOST_PASSWORD')
+
+# Default 'From' address for emails sent by your application
+DEFAULT_FROM_EMAIL= os.getenv('DEFAULT_FROM_EMAIL')
+SERVER_EMAIL= os.getenv('SERVER_EMAIL')
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -116,6 +162,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+MEDIA_URL = '/media/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
